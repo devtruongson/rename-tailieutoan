@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sắp xếp Chuyên đề</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --ink:#1c1b19;
+    --paper:#f6f3ec;
+    --rule:#d9d3c4;
+    --folder:#b5532c;
+    --folder-dark:#8f3f20;
+    --leaf:#4c6b4f;
+    --mono: "JetBrains Mono","SF Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Iowan Old Style","Georgia",serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:48px 28px 80px;}
+
+  header{margin-bottom:36px;border-bottom:2px solid var(--ink);padding-bottom:18px;}
+  .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--folder-dark);
+    margin:0 0 10px;
+  }
+  h1{font-size:34px;margin:0 0 8px;line-height:1.15;font-weight:600;}
+  .sub{font-size:15px;color:#5a564c;margin:0;max-width:560px;line-height:1.5;}
+
+  .dropzone{
+    border:2px dashed var(--rule);
+    border-radius:4px;
+    padding:46px 24px;
+    text-align:center;
+    background:#fffdf8;
+    transition:border-color .15s, background .15s;
+    cursor:pointer;
+    position:relative;
+  }
+  .dropzone.drag{
+    border-color:var(--folder);
+    background:#fbf2ec;
+  }
+  .dropzone .glyph{font-size:34px;display:block;margin-bottom:10px;}
+  .dropzone p{margin:4px 0;font-size:15px;}
+  .dropzone .hint{font-size:13px;color:#8a8576;font-family:var(--mono);}
+  .btnrow{display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+
+  .pickbtn{
+    font-family:var(--mono);
+    font-size:13px;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    padding:11px 18px;
+    border-radius:3px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .pickbtn:hover{background:#3a3730;}
+  .pickbtn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink);}
+  .pickbtn.alt:hover{background:var(--ink);color:var(--paper);}
+
+  input[type=file]{display:none;}
+
+  section.results{margin-top:38px;}
+  .results-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:14px;flex-wrap:wrap;gap:10px;
+  }
+  .results-head h2{font-size:18px;margin:0;font-weight:600;}
+  .count{font-family:var(--mono);font-size:12px;color:#8a8576;}
+
+  .group{
+    border:1px solid var(--rule);
+    border-radius:4px;
+    margin-bottom:10px;
+    background:#fffdf8;
+    overflow:hidden;
+  }
+  .group-head{
+    display:flex;align-items:center;gap:10px;
+    padding:13px 16px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .group-head .ico{color:var(--folder);font-size:17px;flex:0 0 auto;}
+  .group-head .name{font-weight:600;font-size:15px;flex:1;}
+  .group-head .filecount{font-family:var(--mono);font-size:12px;color:#8a8576;}
+  .group-head .caret{font-size:12px;color:#8a8576;transition:transform .15s;}
+  .group.open .caret{transform:rotate(90deg);}
+
+  .group-files{
+    display:none;
+    border-top:1px solid var(--rule);
+    padding:4px 16px 10px 42px;
+  }
+  .group.open .group-files{display:block;}
+  .group-files .f{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:#5a564c;
+    padding:5px 0;
+    border-bottom:1px dashed #e6e1d4;
+  }
+  .group-files .f:last-child{border-bottom:none;}
+
+  .unmatched{
+    border:1px solid #d9a07a;
+    background:#fbf2ec;
+  }
+  .unmatched .group-head .ico{color:#b5532c;}
+
+  .actions{
+    margin-top:24px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  }
+  .download{
+    font-family:var(--mono);
+    font-size:14px;
+    background:var(--leaf);
+    color:#fff;
+    border:none;
+    padding:14px 22px;
+    border-radius:3px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .download:hover{background:#3a5640;}
+  .download:disabled{background:#bdb9ac;cursor:not-allowed;}
+  .progress-note{font-family:var(--mono);font-size:12px;color:#8a8576;}
+
+  footer{
+    margin-top:50px;
+    border-top:1px solid var(--rule);
+    padding-top:16px;
+    font-size:12.5px;
+    color:#9a958685;
+    color:#9a9586;
+    font-family:var(--mono);
+    line-height:1.6;
+  }
+
+  .empty-note{
+    font-size:13px;color:#8a8576;text-align:center;margin-top:10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="tag">Trình gom nhóm tệp</p>
+    <h1>Sắp xếp theo Chuyên đề</h1>
+    <p class="sub">Kéo-thả nhiều tệp hoặc cả thư mục vào đây. Công cụ sẽ tự nhận diện "Chuyên đề N" trong tên tệp, gom mọi tệp cùng số vào một thư mục, và xuất ra một file ZIP đã có cấu trúc thư mục sẵn.</p>
+  </header>
+
+  <div class="dropzone" id="dropzone">
+    <span class="glyph">⌬</span>
+    <p><strong>Kéo tệp hoặc thư mục vào đây</strong></p>
+    <p class="hint">hoặc dùng nút bên dưới</p>
+    <div class="btnrow">
+      <button class="pickbtn" id="pickFiles">Chọn tệp</button>
+      <button class="pickbtn alt" id="pickFolder">Chọn thư mục</button>
+    </div>
+    <input type="file" id="fileInput" multiple>
+    <input type="file" id="folderInput" multiple webkitdirectory directory>
+  </div>
+
+  <section class="results" id="results" style="display:none;">
+    <div class="results-head">
+      <h2>Kết quả nhận diện</h2>
+      <span class="count" id="countLabel"></span>
+    </div>
+    <div id="groupList"></div>
+
+    <div class="actions">
+      <button class="download" id="downloadBtn">Tải file ZIP đã sắp xếp</button>
+      <span class="progress-note" id="progressNote"></span>
+    </div>
+  </section>
+
+  <p class="empty-note" id="emptyNote" style="display:none;">Chưa nhận diện được tệp nào theo dạng "Chuyên đề N". Kiểm tra lại tên tệp.</p>
+
+  <footer>
+    nhận diện theo mẫu "Chuyên đề &lt;số&gt;" trong tên tệp · không tải tệp lên máy chủ, mọi xử lý diễn ra ngay trên trình duyệt của bạn
+  </footer>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
+const pickFiles = document.getElementById('pickFiles');
+const pickFolder = document.getElementById('pickFolder');
+const resultsSection = document.getElementById('results');
+const groupList = document.getElementById('groupList');
+const countLabel = document.getElementById('countLabel');
+const downloadBtn = document.getElementById('downloadBtn');
+const progressNote = document.getElementById('progressNote');
+const emptyNote = document.getElementById('emptyNote');
+
+// Map: groupKey -> { label, files: [{name, file}] }
+let groups = new Map();
+let unmatched = [];
+
+// Nhận diện "Chuyên đề <số>" ở đầu tên file (cho phép có hoặc không dấu, hoa/thường)
+function detectGroup(filename) {
+  const m = filename.match(/Chuy[êeể]n\s*đ[ềê]\s*(\d+)/i);
+  if (m) {
+    return { key: m[1].padStart(3, '0'), label: `Chuyên đề ${m[1]}` };
+  }
+  return null;
+}
+
+function addFiles(fileList) {
+  const arr = Array.from(fileList);
+  for (const file of arr) {
+    // webkitdirectory files carry a relative path in webkitRelativePath
+    const name = file.name;
+    const g = detectGroup(name);
+    if (g) {
+      if (!groups.has(g.key)) groups.set(g.key, { label: g.label, files: [] });
+      groups.get(g.key).files.push(file);
+    } else {
+      unmatched.push(file);
+    }
+  }
+  render();
+}
+
+function render() {
+  resultsSection.style.display = (groups.size > 0 || unmatched.length > 0) ? 'block' : 'none';
+  emptyNote.style.display = (groups.size === 0 && unmatched.length > 0) ? 'block' : 'none';
+
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => parseInt(a) - parseInt(b));
+  let totalFiles = 0;
+  groupList.innerHTML = '';
+
+  for (const key of sortedKeys) {
+    const g = groups.get(key);
+    totalFiles += g.files.length;
+    const div = document.createElement('div');
+    div.className = 'group';
+    div.innerHTML = `
+      <div class="group-head">
+        <span class="ico">▣</span>
+        <span class="name">${g.label}</span>
+        <span class="filecount">${g.files.length} tệp</span>
+        <span class="caret">▶</span>
+      </div>
+      <div class="group-files">
+        ${g.files.map(f => `<div class="f">${f.name}</div>`).join('')}
+      </div>
+    `;
+    div.querySelector('.group-head').addEventListener('click', () => {
+      div.classList.toggle('open');
+    });
+    groupList.appendChild(div);
+  }
+
+  if (unmatched.length > 0) {
+    totalFiles += unmatched.length;
+    const div = document.createElement('div');
+    div.className = 'group unmatched';
+    div.innerHTML = `
+      <div class="group-head">
+        <span class="ico">⚠</span>
+        <span class="name">Không nhận diện được</span>
+        <span class="filecount">${unmatched.length} tệp</span>
+        <span class="caret">▶</span>
+      </div>
+      <div class="group-files">
+        ${unmatched.map(f => `<div class="f">${f.name}</div>`).join('')}
+      </div>
+    `;
+    div.querySelector('.group-head').addEventListener('click', () => {
+      div.classList.toggle('open');
+    });
+    groupList.appendChild(div);
+  }
+
+  countLabel.textContent = `${sortedKeys.length} chuyên đề · ${totalFiles} tệp`;
+  downloadBtn.disabled = (groups.size === 0);
+}
+
+// --- Input handlers ---
+pickFiles.addEventListener('click', () => fileInput.click());
+pickFolder.addEventListener('click', () => folderInput.click());
+fileInput.addEventListener('change', (e) => addFiles(e.target.files));
+folderInput.addEventListener('change', (e) => addFiles(e.target.files));
+
+dropzone.addEventListener('click', (e) => {
+  if (e.target === pickFiles || e.target === pickFolder) return;
+  fileInput.click();
+});
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  });
+});
+
+// Hỗ trợ kéo-thả cả thư mục (DataTransferItem + webkitGetAsEntry)
+dropzone.addEventListener('drop', async (e) => {
+  const items = e.dataTransfer.items;
+  if (items && items.length && items[0].webkitGetAsEntry) {
+    const allFiles = [];
+    const entries = Array.from(items).map(it => it.webkitGetAsEntry()).filter(Boolean);
+    await Promise.all(entries.map(entry => walkEntry(entry, allFiles)));
+    addFiles(allFiles);
+  } else {
+    addFiles(e.dataTransfer.files);
+  }
+});
+
+function walkEntry(entry, out) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file(f => { out.push(f); resolve(); }, () => resolve());
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readAll = () => {
+        reader.readEntries(async (entries) => {
+          if (!entries.length) { resolve(); return; }
+          await Promise.all(entries.map(e2 => walkEntry(e2, out)));
+          readAll();
+        }, () => resolve());
+      };
+      readAll();
+    } else {
+      resolve();
+    }
+  });
+}
+
+// --- Tải ZIP ---
+downloadBtn.addEventListener('click', async () => {
+  downloadBtn.disabled = true;
+  progressNote.textContent = 'Đang đóng gói...';
+
+  const zip = new JSZip();
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => parseInt(a) - parseInt(b));
+
+  for (const key of sortedKeys) {
+    const g = groups.get(key);
+    const folder = zip.folder(g.label);
+    for (const file of g.files) {
+      const buf = await file.arrayBuffer();
+      folder.file(file.name, buf);
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+    progressNote.textContent = `Đang đóng gói... ${Math.round(meta.percent)}%`;
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chuyen-de-da-sap-xep.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  progressNote.textContent = 'Đã tải xong file ZIP.';
+  downloadBtn.disabled = false;
+});
+</script>
+</body>
+</html>
