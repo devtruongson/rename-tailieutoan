@@ -214,9 +214,17 @@ const emptyNote = document.getElementById('emptyNote');
 let groups = new Map();
 let unmatched = [];
 
-// Nhận diện "Chuyên đề <số>" ở đầu tên file (cho phép có hoặc không dấu, hoa/thường)
+// Nhận diện "Chuyên đề <số>" ở đầu tên file.
+// Chuẩn hóa Unicode (NFC) trước vì tên tiếng Việt có thể chứa dấu tổ hợp
+// (ký tự + dấu rời) thay vì ký tự dựng sẵn, khiến regex không khớp.
 function detectGroup(filename) {
-  const m = filename.match(/Chuy[êeể]n\s*đ[ềê]\s*(\d+)/i);
+  const norm = filename.normalize('NFC');
+  // Bỏ dấu để so khớp không phụ thuộc kiểu encode dấu tiếng Việt.
+  // Chú ý: "đ" là một chữ cái riêng trong Unicode, NFD không tách được
+  // dấu gạch ngang của nó, nên phải thay riêng đ/Đ -> d trước khi lowercase.
+  let stripped = norm.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  stripped = stripped.replace(/đ/gi, 'd').toLowerCase();
+  const m = stripped.match(/chuyen\s*de\s*(\d+)/i);
   if (m) {
     return { key: m[1].padStart(3, '0'), label: `Chuyên đề ${m[1]}` };
   }
